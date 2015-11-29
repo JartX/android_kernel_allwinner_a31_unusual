@@ -1,0 +1,166 @@
+diff --git a/drivers/video/sun6i/disp/de_bsp/de/disp_lcd_iic.c b/drivers/video/sun6i/disp/de_bsp/de/disp_lcd_iic.c
+index a825648..66f6205 100755
+--- a/drivers/video/sun6i/disp/de_bsp/de/disp_lcd_iic.c
++++ b/drivers/video/sun6i/disp/de_bsp/de/disp_lcd_iic.c
+@@ -223,8 +223,12 @@ __s32 lcd_iic_read(__u8 slave_addr, __u8 sub_addr, __u8* value)
+ 		i2cBStop();
+ 	LCD_delay_us(10);
+ 	if (i2cBLocateSubDataR(slave_addr,value))
+-		i2cBStop();
+-	return(1);
++	{
++			i2cBStop();
++			return(1);
++	}
++	i2cBStop();
++	return 0;
+ }
+ 
+ EXPORT_SYMBOL(lcd_iic_write);
+diff --git a/drivers/video/sun6i/lcd/lcd0_panel_cfg.c b/drivers/video/sun6i/lcd/lcd0_panel_cfg.c
+index 946f856..18cf677 100755
+--- a/drivers/video/sun6i/lcd/lcd0_panel_cfg.c
++++ b/drivers/video/sun6i/lcd/lcd0_panel_cfg.c
+@@ -118,7 +118,7 @@ static void LCD_cfg_panel_info(__panel_extend_para_t * info)
+ static __s32 LCD_open_flow(__u32 sel)
+ {
+ 	LCD_OPEN_FUNC(sel, LCD_power_on, 0);   //open lcd power, and delay 50ms
+-	LCD_OPEN_FUNC(sel, LCD_panel_init, 100);   //open lcd power, than delay 200ms
++	LCD_OPEN_FUNC(sel, LCD_panel_init, 200);   //open lcd power, than delay 200ms
+ 	//LCD_OPEN_FUNC(sel, TCON_open, 50);     //open lcd controller, and delay 100ms
+ 	LCD_OPEN_FUNC(sel, TCON_open, 100);     //open lcd controller, and delay 100ms, by Cesc
+ 	LCD_OPEN_FUNC(sel, LCD_bl_open, 0);     //open lcd backlight, and delay 0ms
+@@ -128,8 +128,8 @@ static __s32 LCD_open_flow(__u32 sel)
+ 
+ static __s32 LCD_close_flow(__u32 sel)
+ {	
+-	LCD_CLOSE_FUNC(sel, LCD_bl_close, 100);       //close lcd backlight, and delay 0ms
+-	LCD_CLOSE_FUNC(sel, TCON_close, 50);         //close lcd controller, and delay 0ms
++	LCD_CLOSE_FUNC(sel, LCD_bl_close, 0);       //close lcd backlight, and delay 0ms
++	LCD_CLOSE_FUNC(sel, TCON_close, 0);         //close lcd controller, and delay 0ms
+ 	LCD_CLOSE_FUNC(sel, LCD_panel_exit,	200);   //open lcd power, than delay 200ms
+ 	LCD_CLOSE_FUNC(sel, LCD_power_off, 500);   //close lcd power, and delay 500ms
+ 
+diff --git a/drivers/video/sun6i/lcd/lcd_bak/lcd_edp_anx6345.c b/drivers/video/sun6i/lcd/lcd_bak/lcd_edp_anx6345.c
+index 393cc74..15ecea2 100755
+--- a/drivers/video/sun6i/lcd/lcd_bak/lcd_edp_anx6345.c
++++ b/drivers/video/sun6i/lcd/lcd_bak/lcd_edp_anx6345.c
+@@ -8,47 +8,58 @@
+  **********************************************************************/
+ __u8 SP_TX_I2C_Write_BYTE(__u8 dev_addr, __u8 offset, __u8 d)
+ {
+-	lcd_iic_write(dev_addr, offset, d);
+-	return 0;
++	if(lcd_iic_write(dev_addr, offset, d))
++		return 0;
++	return 1;
+ }
+ 
+ __u8 SP_TX_I2C_Read_BYTE(__u8 dev_addr, __u8 offset, __u8 *d)
+ {
+-	lcd_iic_read(dev_addr, offset, d);
+-	return 0;
++	if(lcd_iic_read(dev_addr, offset, d))
++		return 0;
++	return 1;
+ }
+ 
+ __u8 SP_TX_Write_Reg(__u8 dev_addr, __u8 offset, __u8 d)
+ {
+ 	__u8 cResult;
++	__u8 cnt = 5;
+ 
+ 	//SP_TX_I2C_Write_BYTE( dev_addr,  offset,	d);
+ 
+-	cResult = SP_TX_I2C_Write_BYTE( dev_addr,  offset,	d);
+-
+-	if(cResult !=0)
+-	{
+-		//debug_printf("write eror:result code=%.2x,dev addr= %.2x, offset=%.2x,d=%x\n",(WORD)cResult,(WORD)dev_addr, (WORD)offset,(WORD)d);
+-	}
+-
+-	  return 1;
++	do{
++		cResult = SP_TX_I2C_Write_BYTE( dev_addr,  offset,	d);
++	
++		if(cResult !=0)
++		{
++			cnt --;
++		//	printk(KERN_ERR "write eror:result code=%.2x,dev addr= %.2x, offset=%.2x,d=%x,cnt = %d\n",(WORD)cResult,(WORD)dev_addr, (WORD)offset,(WORD)d,cnt);
++		printk(KERN_ERR "write eror:!!!!!!!!!!!!!!!!!!!\n");
++		}else
++			break;
++	}while(cnt != 0);
++	 return 1;
+ 
+ }
+ 
+ __u8 SP_TX_Read_Reg(__u8 dev_addr, __u8 offset, __u8 *d)
+ {
+ 	__u8 cResult;
+-
++__u8 cnt = 5;
+ 	//SP_TX_I2C_Read_BYTE( dev_addr,  offset,  d);
+ 
+-		
+-	cResult = SP_TX_I2C_Read_BYTE( dev_addr,  offset,  d);
+-
+-	if ( cResult!= 0 ) 
+-	{
+-		//debug_printf("read eror:result code = %.2x,dev addr= %.2x, offset=%.2x,d=%.2x\n",(WORD)cResult,(WORD)dev_addr, (WORD)offset,(WORD)(*d));
++	do{	
++		cResult = SP_TX_I2C_Read_BYTE( dev_addr,  offset,  d);
+ 	
+-	}
++		if ( cResult!= 0 ) 
++		{
++			cnt --;
++		//	printk(KERN_ERR "read eror:result code = %.2x,dev addr= %.2x, offset=%.2x,d=%.2x,cnt = %d\n",(WORD)cResult,(WORD)dev_addr, (WORD)offset,(WORD)(*d),cnt);
++            printk(KERN_ERR "read eror:!!!!!!!!!!!!!!!!!!!!!!\n");
++		}
++		else
++		 break;
++	}while(cnt != 0);
+ 	
+ 	   return 1;
+ }
+@@ -130,6 +141,7 @@ void anx6345_init(__panel_para_t * info)
+     __u8 c1;
+     __u32 colordepth;
+     __u8 count1 =0;
++    __u8 cnt = 5;
+ 
+     lanes = info->lcd_edp_tx_lane;
+     data_rate = 0x06;
+@@ -144,22 +156,27 @@ void anx6345_init(__panel_para_t * info)
+ 
+     colordepth = (info->lcd_edp_colordepth == 1)? 0x00:0x10;//0x00: 6bit;  0x10:8bit
+ 
+-        LCD_RESET(1);
+-        LCD_delay_ms(10);
++        
+ 
++   do{
++   	LCD_RESET(1);
++    LCD_delay_ms(10);
+ 		SP_TX_Write_Reg (0x72, 0x05, 0x00);
+-
++     //OSAL_PRINTF("++++++++ ANX6345 REST +++\n\n\n");
+ 
+ 		 SP_TX_Read_Reg(0x72, 0x01, &c);
+-
+ 		 if(c==0xaa)
+ 		 	{
+ 		 		OSAL_PRINTF("ANX6345 Chip found\n\n\n");
++		 		break;
+ 		 	}
+ 		 else
+ 		 	{
+ 		 		OSAL_PRINTF("ANX6345 Chip not found\n\n\n");
++		 		cnt --;
+ 		 	}
++		 	OSAL_PRINTF("+++++aa+++ ANX6345 REST +++\n\n\n");
++		}while(cnt != 0);
+ 
+ 		 //if aux read fail, do h/w reset,
+ 		while((!SP_TX_AUX_DPCDRead_Bytes(0x00,0x00,0x00,1,&c1))&&(count1<200))

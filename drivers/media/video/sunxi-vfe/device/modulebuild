@@ -1,0 +1,17 @@
+#!/bin/bash
+
+#echo "$0 must be edit when first time use." && exit 0
+#tips:
+#in vim, :r!pwd<Enter>
+LICHEE_DIR=/home/liuyunpeng/a3x/sdk_4.4/lichee
+
+KDIR=$LICHEE_DIR/linux-3.3
+export PATH="$PATH:$LICHEE_DIR/buildroot/output/external-toolchain/bin"
+
+if [ "$1" == "-c" ]; then
+    make -C $KDIR M=$PWD ARCH=arm CROSS_COMPILE=arm-linux-gnueabi- modules clean
+else
+    make -C $KDIR M=$PWD ARCH=arm CROSS_COMPILE=arm-linux-gnueabi- modules
+fi
+
+
